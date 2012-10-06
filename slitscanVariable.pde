@@ -33,7 +33,7 @@ void setup() {
   noStroke();
   // The image file must be in the data folder of the current sketch 
   // to load successfully
-  movie = new Movie(this, "doom.mov");
+  movie = new Movie(this, "road.mov");
   movie.loop();
 
 
@@ -73,8 +73,8 @@ void draw() {
     }
     if (key=='3') {
       angle+=angleINC;
-      x2=int(cos(angle)*amt/2)+x1;
-      y2=int(sin(angle)*amt/2)+y1;    // amt=int(dist(x1,y1,x2,y2));
+      x2=int(cos(angle)*amt/2.9)+x1;
+      y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
     }
     if (x1!=0&&y1!=0&&x2!=0&&y2!=0) { 
       colorMode(HSB, 255);
