@@ -8,6 +8,13 @@
 // The next line is needed if running in JavaScript Mode with Processing.js
 /* @pjs preload="moonwalk.jpg"; */
 import processing.video.*;
+import javax.imageio.*;
+import java.awt.image.*; 
+
+// This is the port we are sending to
+int clientPort = 9100; 
+// This is our object that sends UDP out
+DatagramSocket ds; 
 
 import controlP5.*;
 
