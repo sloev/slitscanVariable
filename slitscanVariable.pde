@@ -20,6 +20,8 @@ DatagramSocket ds;
 
 import controlP5.*;
 
+boolean mode=true;
+
 ControlP5 cp5;
 Movie movie;
 int sliderValue=0;
@@ -37,13 +39,33 @@ float angle=PI;
 float angleINC=0.001;
 
 int amt=0;
+String[] lines;
+
+int portOut = 9200; 
+int portIn = 9100; 
+
+InetAddress netOut;
+ReceiverThread thread;
 
 
 void setup() {
   background(0);
-  size(1200, 800);
-  sender=createImage(2, height/2, RGB);
+  size(1200, 400);
+  sender = createImage(1, 400, RGB);
 
+  lines = loadStrings("config.txt");
+  if (lines[0].equals("")) {
+    try {
+      netOut=InetAddress.getByName("localhost");
+    }
+    catch(UnknownHostException uhe) {
+      System.out.println("Caught unknownhost exception ");
+      System.out.println("Message: "+uhe.getMessage());
+      uhe.printStackTrace();
+    }
+  }
+  portOut=int(lines[1]);
+  portIn = int(lines[2]);
   // Setting up the DatagramSocket, requires try/catch
   try {
     ds = new DatagramSocket();
@@ -55,89 +77,106 @@ void setup() {
   noStroke();
   // The image file must be in the data folder of the current sketch 
   // to load successfully
-  movie = new Movie(this, "road.mov");
+  movie = new Movie(this, "train.mov");
   movie.loop();
+
+  pg=createGraphics(400, 400, P2D);
+  pg.beginDraw();
+  pg.background(0);
+  pg.endDraw();
 
   cp5 = new ControlP5(this);
 
   // create a slider
   // parameters:
   // name, minValue, maxValue, defaultValue, x, y, width, height
-  cp5.addSlider("sliderA", 1, width/6, width/8, width/3+20, 20, width/3, 50);
-  cp5.addSlider("sliderB", -0.1, 0.1, 0.01, width/3+20, 80, width/3, 50);
+  cp5.addSlider("sliderA", 1, pg.width/6, pg.width/8, width/3+20, 20, width/5, 50);
+  cp5.addSlider("sliderB", -0.1, 0.1, 0.01, width/3+20, 80, width/5, 50);
 
   sliderValue=width/8;
 
+  // create a toggle and change the default look to a (on/off) switch look
+  cp5.addToggle("toggle")
+    .setPosition(width/3+20, 140)
+      .setSize(50, 20)
+        .setValue(true)
+          .setMode(ControlP5.SWITCH)
+            ;
   img = loadImage("moonwalk.jpg");  // Load the image into the program
-  amt=height/2;
+  amt=height;
   x1=width/6;
-  y1=height/4;
+  y1=height/2;
 
-  pg=createGraphics(width, 400, P2D);
-  pg.beginDraw();
-  pg.background(0);
-  pg.endDraw();
+  thread = new ReceiverThread(1, pg.height, portIn);
+  thread.start();
 }
 //void movieEvent(Movie movie) {
 //movie.read();
 //}
 
 void draw() {
+  if (mousePressed && key=='1' && keyPressed) {
+    x1=mouseX;
+    y1=mouseY;
+  }
+  else if (mousePressed && key=='2' && keyPressed) {
+    x2=mouseX;
+    y2=mouseY;
+    // amt=int(dist(x1,y1,x2,y2));
+  }
+  if (key=='3') {
+    angle+=angleINC;
+    x2=int(cos(angle)*amt/2.9)+x1;
+    y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
+  }
 
-  //  broadcast(get().resize(400,400));
-  // Displays the image at its actual size at point (0,0)
-  if (movie.available()) {
+  if (mode) {
+    if (thread.available() ) {
+      image(thread.getImage(), 0, 0, width/3, height);
+      broadcast(thread.getImage());
+    }
+  }
+  else if (movie.available()) {
     loadPixels();
     movie.read();
+    image(movie, 0, 0, width/3, height);
+    scan();
 
-    image(movie, 0, 0, width/3, height/2);
-    if (mousePressed && key=='1' && keyPressed) {
-      x1=mouseX;
-      y1=mouseY;
-    }
-    else if (mousePressed && key=='2' && keyPressed) {
-      x2=mouseX;
-      y2=mouseY;
-      // amt=int(dist(x1,y1,x2,y2));
-    }
-    if (key=='3') {
-      angle+=angleINC;
-      x2=int(cos(angle)*amt/2.9)+x1;
-      y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
-    }
-    if (x1!=0&&y1!=0&&x2!=0&&y2!=0) { 
-      colorMode(HSB, 255);
-      pg.beginDraw();
-      //tint((millis()/100)%255, 255, 255);
-     // pg.blend(1, height/2, sliderValue, height/2, 1, height/2, sliderValue+1, height/2, BLEND);
-      pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, BLEND);
-
-      //pg.copy(1, height/2, width, height/2, 2, height/2, width, height/2);
-      pg.copy(1, 0, width, 400, 2, 0, width, 400);
-      //pg.blend(1, height/2, sliderValue, height/2, 1, height/2, sliderValue+1, height/2, BLEND);
-      pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, BLEND);
-
-      for (int i = 0; i <= amt; i++) {
-        int x = int(lerp(x2, x1, i/(amt*1.0)) + 10);
-        int y = int(lerp(y2, y1, i/(amt*1.0)));
-        pg.stroke(get(x, y));
-       // pg.point(2, i+height/2);
-       pg.point(2, i);
-      }
-      pg.endDraw();
-      //noTint();
-      colorMode(RGB, 255);
-      stroke(0, 255, 0);
-      line(x1, y1, x2, y2);
-    }
-     broadcast(pg.get(width-2,0,1,400));
+    broadcast(pg.get(pg.width-2, 0, 1, 400));
   }
-        image(pg, 0, 400, width, 400);
-       
+  image(pg, width-width/3, 0);
 
-
-  println(x1+","+y1+"   "+x2+","+y2+"   "+angle);
+  //println(x1+","+y1+"   "+x2+","+y2+"   "+angle);
 }
+
+public void scan() {
+  if (x1!=0&&y1!=0&&x2!=0&&y2!=0) { 
+    colorMode(HSB, 255);
+    pg.beginDraw();
+    //tint((millis()/100)%255, 255, 255);
+    // pg.blend(1, height/2, sliderValue, height/2, 1, height/2, sliderValue+1, height/2, BLEND);
+    pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, BLEND);
+
+    //pg.copy(1, height/2, width, height/2, 2, height/2, width, height/2);
+    pg.copy(1, 0, pg.width, 400, 2, 0, pg.width, 400);
+    //pg.blend(1, height/2, sliderValue, height/2, 1, height/2, sliderValue+1, height/2, BLEND);
+    pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, BLEND);
+
+    for (int i = 0; i <= amt; i++) {
+      int x = int(lerp(x2, x1, i/(amt*1.0)) + 10);
+      int y = int(lerp(y2, y1, i/(amt*1.0)));
+      pg.stroke(get(x, y));
+      // pg.point(2, i+height/2);
+      pg.point(2, i);
+    }
+    pg.endDraw();
+    //noTint();
+    colorMode(RGB, 255);
+    stroke(0, 255, 0);
+    line(x1, y1, x2, y2);
+  }
+}
+
 public void sliderA(int theValue) {
   sliderValue=theValue;
 }
@@ -178,10 +217,14 @@ void broadcast(PImage img) {
   // Send JPEG data as a datagram
   println("Sending datagram with " + packet.length + " bytes");
   try {
-    ds.send(new DatagramPacket(packet, packet.length, InetAddress.getByName("localhost"), clientPort));
+    ds.send(new DatagramPacket(packet, packet.length, netOut, portOut));
   } 
   catch (Exception e) {
     e.printStackTrace();
   }
+}
+
+void toggle(boolean theFlag) {
+  mode=theFlag;
 }
 
