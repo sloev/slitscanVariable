@@ -13,7 +13,6 @@ import javax.imageio.*;
 import java.awt.image.*; 
 
 // This is the port we are sending to
-int clientPort = 9100; 
 // This is our object that sends UDP out
 DatagramSocket ds; 
 // Capture object
@@ -23,6 +22,10 @@ import controlP5.*;
 boolean mode=true;
 
 ControlP5 cp5;
+DropdownList d1;
+String [] movies;
+int index=0;
+
 Movie movie;
 int sliderValue=0;
 
@@ -50,6 +53,8 @@ ReceiverThread thread;
 
 void setup() {
   background(0);
+
+  movies=new String[0];
   size(1200, 400);
   sender = createImage(1, 400, RGB);
 
@@ -77,8 +82,7 @@ void setup() {
   noStroke();
   // The image file must be in the data folder of the current sketch 
   // to load successfully
-  movie = new Movie(this, "train.mov");
-  movie.loop();
+
 
   pg=createGraphics(400, 400, P2D);
   pg.beginDraw();
@@ -102,6 +106,13 @@ void setup() {
         .setValue(true)
           .setMode(ControlP5.SWITCH)
             ;
+
+  d1 = cp5.addDropdownList("myList-d1")
+    .setPosition(width/3+20, 200)
+      ;
+  listFiles();
+
+
   img = loadImage("moonwalk.jpg");  // Load the image into the program
   amt=height;
   x1=width/6;
@@ -115,33 +126,39 @@ void setup() {
 //}
 
 void draw() {
-  if (mousePressed && key=='1' && keyPressed) {
-    x1=mouseX;
-    y1=mouseY;
-  }
-  else if (mousePressed && key=='2' && keyPressed) {
-    x2=mouseX;
-    y2=mouseY;
-    // amt=int(dist(x1,y1,x2,y2));
-  }
-  if (key=='3') {
-    angle+=angleINC;
-    x2=int(cos(angle)*amt/2.9)+x1;
-    y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
-  }
-
+  fill(0);
+  rect(width/3, 0, width/3, 400);
   if (mode) {
     if (thread.available() ) {
       image(thread.getImage(), 0, 0, width/3, height);
-      broadcast(thread.getImage());
+      x1=1;
+      y1=height-1;
+      x2=1;
+      y2=1;
+      scan();
+      broadcast(pg.get(pg.width-2, 0, 1, 400));
     }
   }
   else if (movie.available()) {
+    if (mousePressed && key=='1' && keyPressed) {
+      x1=mouseX;
+      y1=mouseY;
+    }
+    else if (mousePressed && key=='2' && keyPressed) {
+      x2=mouseX;
+      y2=mouseY;
+      // amt=int(dist(x1,y1,x2,y2));
+    }
+    if (key=='3') {
+      angle+=angleINC;
+      x2=int(cos(angle)*amt/2.9)+x1;
+      y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
+    }
+
     loadPixels();
     movie.read();
     image(movie, 0, 0, width/3, height);
     scan();
-
     broadcast(pg.get(pg.width-2, 0, 1, 400));
   }
   image(pg, width-width/3, 0);
@@ -155,7 +172,7 @@ public void scan() {
     pg.beginDraw();
     //tint((millis()/100)%255, 255, 255);
     // pg.blend(1, height/2, sliderValue, height/2, 1, height/2, sliderValue+1, height/2, BLEND);
-    pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, BLEND);
+    pg.blend(1, 0, sliderValue, 400, 1, 0, sliderValue+1, 400, LIGHTEST);
 
     //pg.copy(1, height/2, width, height/2, 2, height/2, width, height/2);
     pg.copy(1, 0, pg.width, 400, 2, 0, pg.width, 400);
@@ -226,5 +243,85 @@ void broadcast(PImage img) {
 
 void toggle(boolean theFlag) {
   mode=theFlag;
+}
+
+void listFiles() {
+  // a convenience function to customize a DropdownList
+  d1.setBackgroundColor(color(190));
+  d1.setItemHeight(20);
+  d1.setBarHeight(15);
+  d1.captionLabel().set("dropdown");
+  d1.captionLabel().style().marginTop = 3;
+  d1.captionLabel().style().marginLeft = 3;
+  d1.valueLabel().style().marginTop = 3;
+
+
+  //for (int i=0;i<tokens.length;i++) {
+  // tokens[i]="item "+i+" z";
+  //d1.addItem(tokens[i], i);
+  //}
+  //ddl.scroll(0);
+  d1.setColorBackground(color(60));
+  d1.setColorActive(color(255, 128));
+
+
+  String path = sketchPath+"/data/";
+
+  String[] filenames = listFileNames(path);
+  //println(filenames);
+
+  File[] files = listFiles(path);
+  for (int i = 0; i < files.length; i++) {
+    File f = files[i];    
+    if (f.getName().substring(f.getName().length()-4).equals(".mov")) {
+      movies = append(movies, f.getName()); 
+      println(movies[movies.length-1]);
+      d1.addItem(movies[movies.length-1], movies.length-1);
+    }
+  }
+  movie = new Movie(this, movies[index]);
+  movie.loop();
+}
+
+
+// This function returns all the files in a directory as an array of File objects
+// This is useful if you want more info about the file
+File[] listFiles(String dir) {
+  File file = new File(dir);
+  if (file.isDirectory()) {
+    File[] files = file.listFiles();
+    return files;
+  } 
+  else {
+    // If it's not a directory
+    return null;
+  }
+}
+String[] listFileNames(String dir) {
+  File file = new File(dir);
+  if (file.isDirectory()) {
+    String names[] = file.list();
+    return names;
+  } 
+  else {
+    // If it's not a directory
+    return null;
+  }
+}
+
+void controlEvent(ControlEvent theEvent) {
+
+  if (theEvent.isGroup()) {
+    // check if the Event was triggered from a ControlGroup
+    index=int(theEvent.getGroup().getValue());
+    println(movies[index]);
+    movie = new Movie(this, movies[index]);
+    movie.loop();
+
+    println("event from group : "+theEvent.getGroup().getValue()+" from "+theEvent.getGroup());
+  } 
+  else if (theEvent.isController()) {
+    println("event from controller : "+theEvent.getController().getValue()+" from "+theEvent.getController());
+  }
 }
 
