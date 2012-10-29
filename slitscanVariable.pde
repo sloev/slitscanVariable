@@ -50,6 +50,7 @@ int portIn = 9100;
 InetAddress netOut;
 ReceiverThread thread;
 
+RadioButton r;
 
 void setup() {
   background(0);
@@ -110,6 +111,26 @@ void setup() {
   d1 = cp5.addDropdownList("myList-d1")
     .setPosition(width/3+20, 200)
       ;
+      
+       r = cp5.addRadioButton("radioButton")
+         .setPosition(width/3+80, 140)
+         .setSize(40,20)
+         .setColorForeground(color(120))
+         .setColorActive(color(255))
+         .setColorLabel(color(255))
+         .setItemsPerRow(5)
+         .setSpacingColumn(50)
+         .addItem("50",1)
+         .addItem("100",2)
+         ;
+     
+     for(Toggle t:r.getItems()) {
+       t.captionLabel().setColorBackground(color(255,80));
+       t.captionLabel().style().moveMargin(-7,0,0,-3);
+       t.captionLabel().style().movePadding(7,0,0,3);
+       t.captionLabel().style().backgroundWidth = 45;
+       t.captionLabel().style().backgroundHeight = 13;
+     }
   listFiles();
 
 
@@ -310,8 +331,13 @@ String[] listFileNames(String dir) {
 }
 
 void controlEvent(ControlEvent theEvent) {
-
-  if (theEvent.isGroup()) {
+if(theEvent.isFrom(r)) {
+    print("got an event from "+theEvent.getName()+"\t");
+    for(int i=0;i<theEvent.getGroup().getArrayValue().length;i++) {
+      print(int(theEvent.getGroup().getArrayValue()[i]));
+    }
+    println("\t "+theEvent.getValue());
+  }else if (theEvent.isGroup()) {
     // check if the Event was triggered from a ControlGroup
     index=int(theEvent.getGroup().getValue());
     println(movies[index]);
@@ -324,4 +350,4 @@ void controlEvent(ControlEvent theEvent) {
     println("event from controller : "+theEvent.getController().getValue()+" from "+theEvent.getController());
   }
 }
-
+ 
