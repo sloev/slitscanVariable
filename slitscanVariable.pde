@@ -19,7 +19,10 @@ DatagramSocket ds;
 
 import controlP5.*;
 
-boolean mode=true;
+int mode=0;
+int lineMode=0;
+
+int time=0;
 
 ControlP5 cp5;
 DropdownList d1;
@@ -30,19 +33,23 @@ Movie movie;
 int sliderValue=0;
 
 PImage img;  // Declare variable "a" of type PImage
-int x1 = 0;
+float x1 = 0;
 int y1 = 0;
-int x2 = 0;
+float x2 = 0;
 int y2 = 0;
+int direction=-1;
 PGraphics pg;
 
 PImage sender;
 
 float angle=PI;
-float angleINC=0.001;
+float angleINC=0.11;
 
 int amt=0;
 String[] lines;
+
+
+Capture cam;
 
 int portOut = 9200; 
 int portIn = 9100; 
@@ -51,9 +58,13 @@ InetAddress netOut;
 ReceiverThread thread;
 
 RadioButton r;
+RadioButton r2;
 
 void setup() {
   background(0);
+  String[] cameras = Capture.list();
+  cam = new Capture(this, 320, 240, cameras[0]);
+  cam.start();
 
   movies=new String[0];
   size(1200, 400);
@@ -63,6 +74,17 @@ void setup() {
   if (lines[0].equals("")) {
     try {
       netOut=InetAddress.getByName("localhost");
+    }
+    catch(UnknownHostException uhe) {
+      System.out.println("Caught unknownhost exception ");
+      System.out.println("Message: "+uhe.getMessage());
+      uhe.printStackTrace();
+    }
+  }
+  else {
+    try {
+      netOut=InetAddress.getByName(lines[0]);
+      println(netOut);
     }
     catch(UnknownHostException uhe) {
       System.out.println("Caught unknownhost exception ");
@@ -96,41 +118,56 @@ void setup() {
   // parameters:
   // name, minValue, maxValue, defaultValue, x, y, width, height
   cp5.addSlider("sliderA", 1, pg.width/6, pg.width/8, width/3+20, 20, width/5, 50);
-  cp5.addSlider("sliderB", -0.1, 0.1, 0.01, width/3+20, 80, width/5, 50);
+  cp5.addSlider("sliderB", 0.1, 3, angleINC, width/3+20, 80, width/5, 50);
 
   sliderValue=width/8;
 
-  // create a toggle and change the default look to a (on/off) switch look
-  cp5.addToggle("toggle")
-    .setPosition(width/3+20, 140)
-      .setSize(50, 20)
-        .setValue(true)
-          .setMode(ControlP5.SWITCH)
-            ;
+
 
   d1 = cp5.addDropdownList("myList-d1")
-    .setPosition(width/3+20, 200)
+    .setPosition(width/3+20, 220)
       ;
-      
-       r = cp5.addRadioButton("radioButton")
-         .setPosition(width/3+80, 140)
-         .setSize(40,20)
-         .setColorForeground(color(120))
-         .setColorActive(color(255))
-         .setColorLabel(color(255))
-         .setItemsPerRow(5)
-         .setSpacingColumn(50)
-         .addItem("50",1)
-         .addItem("100",2)
-         ;
-     
-     for(Toggle t:r.getItems()) {
-       t.captionLabel().setColorBackground(color(255,80));
-       t.captionLabel().style().moveMargin(-7,0,0,-3);
-       t.captionLabel().style().movePadding(7,0,0,3);
-       t.captionLabel().style().backgroundWidth = 45;
-       t.captionLabel().style().backgroundHeight = 13;
-     }
+
+  r = cp5.addRadioButton("radioButton")
+    .setPosition(width/3+20, 140)
+      .setSize(40, 20)
+        .setColorForeground(color(120))
+          .setColorActive(color(255))
+            .setColorLabel(color(255))
+              .setItemsPerRow(5)
+                .setSpacingColumn(50)
+                  .addItem("50", 0)
+                    .addItem("100", 1)
+                      .addItem("150", 2)
+                        ;
+
+  for (Toggle t:r.getItems()) {
+    t.captionLabel().setColorBackground(color(255, 80));
+    t.captionLabel().style().moveMargin(-7, 0, 0, -3);
+    t.captionLabel().style().movePadding(7, 0, 0, 3);
+    t.captionLabel().style().backgroundWidth = 45;
+    t.captionLabel().style().backgroundHeight = 13;
+  }
+
+  r2 = cp5.addRadioButton("radioButton2")
+    .setPosition(width/3+20, 170)
+      .setSize(40, 20)
+        .setColorForeground(color(120))
+          .setColorActive(color(255))
+            .setColorLabel(color(255))
+              .setItemsPerRow(5)
+                .setSpacingColumn(50)
+                  .addItem("a", 0)
+                    .addItem("b", 1)
+                      ;
+
+  for (Toggle t:r2.getItems()) {
+    t.captionLabel().setColorBackground(color(255, 80));
+    t.captionLabel().style().moveMargin(-7, 0, 0, -3);
+    t.captionLabel().style().movePadding(7, 0, 0, 3);
+    t.captionLabel().style().backgroundWidth = 45;
+    t.captionLabel().style().backgroundHeight = 13;
+  }
   listFiles();
 
 
@@ -148,39 +185,98 @@ void setup() {
 
 void draw() {
   fill(0);
+  noStroke();
   rect(width/3, 0, width/3, 400);
-  if (mode) {
+
+  switch(lineMode) {
+  case 0:
+    if (x1>width/3-15||x1<1) {
+      direction*=-1;
+    }
+    x1+=angleINC*direction;
+    y1=height;
+    x2=x1;
+    y2=1;
+    break;
+  case 1:
+    x1=width/6;
+    y1=height;
+    x2=width/6;
+    y2=1;
+    break;
+  case 2:
+    y1=height/2;
+    x1=width/6;
+    angle+=angleINC;
+    x2=int(cos(angle)*amt/2.9)+x1;
+    y2=int(sin(angle)*amt/2.9)+y1;
+    break;
+  }
+  /*
+  if (mousePressed && key=='1' && keyPressed) {
+   x1=mouseX;
+   y1=mouseY;
+   }
+   else if (mousePressed && key=='2' && keyPressed) {
+   x2=mouseX;
+   y2=mouseY;
+   // amt=int(dist(x1,y1,x2,y2));
+   }
+   if (key=='3') {
+   angle+=angleINC;
+   x2=int(cos(angle)*amt/2.9)+x1;
+   y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
+   }
+   */
+  switch(mode) {
+  case -1:
+    if (millis()<time) {
+      if (movie.available()) {
+        loadPixels();
+        movie.read();
+        image(movie, 0, 0, width/3, height);
+        scan();
+        broadcast(pg.get(pg.width-2, 0, 1, 400));
+      }
+    }
+    else {
+      time=0;
+      mode=0;
+    }
+    break;
+  case 0:
     if (thread.available() ) {
+      time=0;
       image(thread.getImage(), 0, 0, width/3, height);
-      x1=1;
-      y1=height-1;
-      x2=1;
-      y2=1;
+      scan();
+      broadcast(pg.get(pg.width-2, 0, 1, 400));
+    }   
+    else {
+      time++;
+    }
+    if (time>2) {
+      time=millis()+50;
+      mode=-1;
+    }
+    break;
+  case 1:
+    if (movie.available()) {
+      loadPixels();
+      movie.read();
+      image(movie, 0, 0, width/3, height);
       scan();
       broadcast(pg.get(pg.width-2, 0, 1, 400));
     }
-  }
-  else if (movie.available()) {
-    if (mousePressed && key=='1' && keyPressed) {
-      x1=mouseX;
-      y1=mouseY;
+    break;
+  case 2:
+    if (cam.available() == true) {
+      loadPixels();
+      cam.read();
+      image(cam, 0, 0, width/3, height);
+      scan();
+      broadcast(pg.get(pg.width-2, 0, 1, 400));
     }
-    else if (mousePressed && key=='2' && keyPressed) {
-      x2=mouseX;
-      y2=mouseY;
-      // amt=int(dist(x1,y1,x2,y2));
-    }
-    if (key=='3') {
-      angle+=angleINC;
-      x2=int(cos(angle)*amt/2.9)+x1;
-      y2=int(sin(angle)*amt/2.9)+y1;    // amt=int(dist(x1,y1,x2,y2));
-    }
-
-    loadPixels();
-    movie.read();
-    image(movie, 0, 0, width/3, height);
-    scan();
-    broadcast(pg.get(pg.width-2, 0, 1, 400));
+    break;
   }
   image(pg, width-width/3, 0);
 
@@ -253,7 +349,7 @@ void broadcast(PImage img) {
   byte[] packet = baStream.toByteArray();
 
   // Send JPEG data as a datagram
-  println("Sending datagram with " + packet.length + " bytes");
+  //println("Sending datagram with " + packet.length + " bytes");
   try {
     ds.send(new DatagramPacket(packet, packet.length, netOut, portOut));
   } 
@@ -262,9 +358,7 @@ void broadcast(PImage img) {
   }
 }
 
-void toggle(boolean theFlag) {
-  mode=theFlag;
-}
+
 
 void listFiles() {
   // a convenience function to customize a DropdownList
@@ -329,15 +423,18 @@ String[] listFileNames(String dir) {
     return null;
   }
 }
+void radioButton(int a) {
+  mode=a;
+  println("a radio Button event: "+a);
+}
+
+void radioButton2(int a) {
+  lineMode=a;
+  println("a radio Button2 event: "+a);
+}
 
 void controlEvent(ControlEvent theEvent) {
-if(theEvent.isFrom(r)) {
-    print("got an event from "+theEvent.getName()+"\t");
-    for(int i=0;i<theEvent.getGroup().getArrayValue().length;i++) {
-      print(int(theEvent.getGroup().getArrayValue()[i]));
-    }
-    println("\t "+theEvent.getValue());
-  }else if (theEvent.isGroup()) {
+  if (theEvent.isGroup() && theEvent.isFrom(d1)) {
     // check if the Event was triggered from a ControlGroup
     index=int(theEvent.getGroup().getValue());
     println(movies[index]);
@@ -350,4 +447,4 @@ if(theEvent.isFrom(r)) {
     println("event from controller : "+theEvent.getController().getValue()+" from "+theEvent.getController());
   }
 }
- 
+
